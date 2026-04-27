@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Titanic ML Project</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --card: #1a2235;
+    --border: #ffffff12;
+    --accent: #e8c87a;
+    --accent2: #5b8dee;
+    --green: #34d399;
+    --red: #f87171;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #0a0e1a 0%, #111827 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 2.5rem 2rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '🚢';
+    position: absolute; font-size: 12rem; opacity: 0.04;
+    top: -2rem; right: -2rem; pointer-events: none;
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    color: var(--accent);
+    letter-spacing: -1px;
+  }
+  header p { color: var(--muted); margin-top: .5rem; font-size: .95rem; font-family: 'DM Mono', monospace; }
+
+  /* ── Layout ── */
+  main { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  @media(max-width:780px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .card h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  section-label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: .5rem;
+  }
+
+  /* ── Stat chips ── */
+  .stats-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .75rem 1.25rem;
+    flex: 1; min-width: 120px; text-align: center;
+  }
+  .stat .val { font-family: 'DM Mono', monospace; font-size: 1.8rem; color: var(--accent); font-weight: 700; }
+  .stat .lbl { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+
+  /* ── Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media(max-width:500px){ .form-grid{ grid-template-columns:1fr; } }
+  .field label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .4rem; font-family: 'DM Mono', monospace; }
+  .field select, .field input {
+    width: 100%; padding: .6rem .9rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: .9rem;
+    font-family: 'DM Sans', sans-serif;
+    transition: border .2s;
+  }
+  .field select:focus, .field input:focus { outline: none; border-color: var(--accent2); }
+  .predict-btn {
+    margin-top: 1.25rem; width: 100%; padding: .85rem;
+    background: var(--accent); color: #0a0e1a;
+    border: none; border-radius: 10px;
+    font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700;
+    cursor: pointer; transition: opacity .2s, transform .1s;
+  }
+  .predict-btn:hover { opacity: .9; transform: translateY(-1px); }
+  .predict-btn:active { transform: translateY(0); }
+
+  /* ── Result ── */
+  #result {
+    margin-top: 1.25rem; padding: 1.25rem 1.5rem;
+    border-radius: 12px; text-align: center;
+    display: none; animation: pop .3s ease;
+  }
+  @keyframes pop { from{ transform:scale(.95); opacity:0 } to{ transform:scale(1); opacity:1 } }
+  #result.survived { background: #064e3b; border: 1px solid var(--green); }
+  #result.died     { background: #450a0a; border: 1px solid var(--red); }
+  #result .emoji { font-size: 2.5rem; }
+  #result .verdict { font-family: 'Playfair Display', serif; font-size: 1.4rem; margin: .3rem 0; }
+  #result .prob { font-family: 'DM Mono', monospace; font-size: .85rem; color: var(--muted); }
+
+  /* ── Confusion Matrix ── */
+  .cm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: .5rem; }
+  .cm-cell {
+    border-radius: 10px; padding: 1rem;
+    text-align: center; font-family: 'DM Mono', monospace;
+  }
+  .cm-cell .num { font-size: 1.8rem; font-weight: 700; }
+  .cm-cell .lbl { font-size: .7rem; color: var(--muted); margin-top: .2rem; }
+  .cm-tp { background: #064e3b; }
+  .cm-fp { background: #450a0a; }
+  .cm-fn { background: #450a0a; }
+  .cm-tn { background: #064e3b; }
+
+  canvas { max-height: 220px; }
+  .full-width { grid-column: 1 / -1; }
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚢 Titanic Survival Predictor</h1>
+  <p>ML Review 1 &nbsp;·&nbsp; Random Forest Classifier &nbsp;·&nbsp; Binary Classification</p>
+</header>
+
+<main>
+
+  <!-- Stats row -->
+  <div class="stats-row">
+    <div class="stat"><div class="val">{{ accuracy }}%</div><div class="lbl">Model Accuracy</div></div>
+    <div class="stat"><div class="val">891</div><div class="lbl">Total Passengers</div></div>
+    <div class="stat"><div class="val">100</div><div class="lbl">Decision Trees</div></div>
+    <div class="stat"><div class="val">7</div><div class="lbl">Features Used</div></div>
+  </div>
+
+  <!-- Row 1: Predict + Confusion Matrix -->
+  <div class="grid2" style="margin-bottom:1.5rem">
+
+    <!-- Predictor -->
+    <div class="card">
+      <h2>🎯 Predict Survival</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>PASSENGER CLASS</label>
+          <select id="pclass">
+            <option value="1">1st Class</option>
+            <option value="2">2nd Class</option>
+            <option value="3" selected>3rd Class</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>SEX</label>
+          <select id="sex">
+            <option value="0" selected>Male</option>
+            <option value="1">Female</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>AGE</label>
+          <input type="number" id="age" value="25" min="0" max="100"/>
+        </div>
+        <div class="field">
+          <label>SIBLINGS / SPOUSES</label>
+          <input type="number" id="sibsp" value="0" min="0" max="8"/>
+        </div>
+        <div class="field">
+          <label>PARENTS / CHILDREN</label>
+          <input type="number" id="parch" value="0" min="0" max="6"/>
+        </div>
+        <div class="field">
+          <label>FARE (£)</label>
+          <input type="number" id="fare" value="15" min="0"/>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>PORT OF EMBARKATION</label>
+          <select id="embarked">
+            <option value="0" selected>Southampton (S)</option>
+            <option value="1">Cherbourg (C)</option>
+            <option value="2">Queenstown (Q)</option>
+          </select>
+        </div>
+      </div>
+      <button class="predict-btn" onclick="predict()">Predict Survival →</button>
+      <div id="result">
+        <div class="emoji" id="res-emoji"></div>
+        <div class="verdict" id="res-verdict"></div>
+        <div class="prob" id="res-prob"></div>
+      </div>
+    </div>
+
+    <!-- Confusion Matrix -->
+    <div class="card">
+      <h2>📊 Confusion Matrix</h2>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">How the model performed on the 20% test set</p>
+      {% set cm = cm %}
+      <div class="cm-grid">
+        <div class="cm-cell cm-tp">
+          <div class="num" style="color:var(--green)">{{ cm[1][1] }}</div>
+          <div class="lbl">True Positive<br>Predicted Survived ✓</div>
+        </div>
+        <div class="cm-cell cm-fp">
+          <div class="num" style="color:var(--red)">{{ cm[0][1] }}</div>
+          <div class="lbl">False Positive<br>Wrongly predicted survived</div>
+        </div>
+        <div class="cm-cell cm-fn">
+          <div class="num" style="color:var(--red)">{{ cm[1][0] }}</div>
+          <div class="lbl">False Negative<br>Missed a survivor</div>
+        </div>
+        <div class="cm-cell cm-tn">
+          <div class="num" style="color:var(--green)">{{ cm[0][0] }}</div>
+          <div class="lbl">True Negative<br>Predicted death ✓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Three charts -->
+  <div class="grid3">
+    <div class="card">
+      <h2>👥 Survival by Gender</h2>
+      <canvas id="chartSex"></canvas>
+    </div>
+    <div class="card">
+      <h2>🎫 Survival by Class</h2>
+      <canvas id="chartClass"></canvas>
+    </div>
+    <div class="card">
+      <h2>⚖️ Feature Importance</h2>
+      <canvas id="chartFeat"></canvas>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Chart defaults ──────────────────────────────────────────────────
+Chart.defaults.color = '#64748b';
+Chart.defaults.borderColor = '#ffffff10';
+const font = { family: "'DM Mono', monospace", size: 11 };
+
+// Survival by Sex
+new Chart(document.getElementById('chartSex'), {
+  type: 'bar',
+  data: {
+    labels: ['Male', 'Female'],
+    datasets: [{
+      label: 'Survival Rate',
+      data: [
+        {{ surv_sex.get('male', 0) }},
+        {{ surv_sex.get('female', 0) }}
+      ],
+      backgroundColor: ['#5b8dee99', '#e8c87a99'],
+      borderColor: ['#5b8dee', '#e8c87a'],
+      borderWidth: 2, borderRadius: 8,
+    }]
+  },
+  options: { plugins: { legend: { display: false } }, scales: { y: { max: 1, ticks: { font } }, x: { ticks: { font } } } }
+});
+
+// Survival by Class
+new Chart(document.getElementById('chartClass'), {
+  type: 'bar',
+  data: {
+    labels: ['1st Class', '2nd Class', '3rd Class'],
+    datasets: [{
+      label: 'Survival Rate',
+      data: [
+        {{ surv_class.get(1, 0) }},
+        {{ surv_class.get(2, 0) }},
+        {{ surv_class.get(3, 0) }}
+      ],
+      backgroundColor: ['#34d39999', '#5b8dee99', '#f8717199'],
+      borderColor: ['#34d399', '#5b8dee', '#f87171'],
+      borderWidth: 2, borderRadius: 8,
+    }]
+  },
+  options: { plugins: { legend: { display: false } }, scales: { y: { max: 1, ticks: { font } }, x: { ticks: { font } } } }
+});
+
+// Feature Importance
+const featData = {{ feat_imp | tojson }};
+new Chart(document.getElementById('chartFeat'), {
+  type: 'bar',
+  data: {
+    labels: Object.keys(featData),
+    datasets: [{
+      label: 'Importance',
+      data: Object.values(featData),
+      backgroundColor: '#5b8dee88',
+      borderColor: '#5b8dee',
+      borderWidth: 2, borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: { x: { ticks: { font } }, y: { ticks: { font } } }
+  }
+});
+
+// ── Predict ─────────────────────────────────────────────────────────
+async function predict() {
+  const payload = {
+    pclass:   document.getElementById('pclass').value,
+    sex:      document.getElementById('sex').value,
+    age:      document.getElementById('age').value,
+    sibsp:    document.getElementById('sibsp').value,
+    parch:    document.getElementById('parch').value,
+    fare:     document.getElementById('fare').value,
+    embarked: document.getElementById('embarked').value,
+  };
+  const res  = await fetch('/predict', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const data = await res.json();
+  const box  = document.getElementById('result');
+  box.style.display = 'block';
+  if (data.survived) {
+    box.className = 'survived';
+    document.getElementById('res-emoji').textContent   = '✅';
+    document.getElementById('res-verdict').textContent = 'Survived';
+  } else {
+    box.className = 'died';
+    document.getElementById('res-emoji').textContent   = '❌';
+    document.getElementById('res-verdict').textContent = 'Did Not Survive';
+  }
+  document.getElementById('res-prob').textContent = `Confidence: ${data.probability}%`;
+}
+</script>
+</body>
+</html>
